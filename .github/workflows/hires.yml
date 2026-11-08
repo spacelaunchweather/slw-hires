@@ -1,0 +1,39 @@
+name: High-resolution guidance
+
+# Decodes RRFS, the REFS members and REFS calibrated thunder at every Space Launch Weather
+# point. New runs appear every 6 hours; hourly runs pick them up soon after they post and skip
+# anything already stored. Public repo, so Actions minutes are free.
+on:
+  schedule:
+    - cron: "25 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: hires
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  hires:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Offline test
+        run: python -m pytest -q
+      - name: Decode and store
+        env:
+          STORAGE: r2
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          HIRES_BUDGET_MIN: "40"
+        run: python slw_hires.py
